@@ -383,10 +383,46 @@ async fn analyze(
     // 5. Use carve (carving) if supported (TODO)
     // 6. Use verbose/quiet for logging (TODO: connect to log level)
 
-    let binwalker = Binwalk::new();
-    // TODO: If Binwalk::new() or configure() supports options, pass them here
-    // For now, scan and extract as per options
-    let results = binwalker.scan(&file_bytes);
+    // --- CLI-equivalent options wiring ---
+    // Set log level using log::set_max_level
+    use log::LevelFilter;
+    if opts.quiet {
+        log::set_max_level(LevelFilter::Error);
+    } else if opts.verbose {
+        log::set_max_level(LevelFilter::Debug);
+    } else {
+        log::set_max_level(LevelFilter::Info);
+    }
+
+    // Set thread pool size if supported (rayon or threadpool)
+    if let Some(thread_count) = opts.threads {
+        // Try to set global thread pool (rayon)
+        let _ = rayon::ThreadPoolBuilder::new().num_threads(thread_count).build_global();
+        // TODO: If another threadpool is used in backend, configure it here.
+    }
+
+    // Prepare include/exclude as Vec<String> if present
+    let include_vec = opts.include.as_ref().map(|s| s.split(',').map(|s| s.trim().to_string()).filter(|x| !x.is_empty()).collect());
+    let exclude_vec = opts.exclude.as_ref().map(|s| s.split(',').map(|s| s.trim().to_string()).filter(|x| !x.is_empty()).collect());
+    // Use Binwalk::configure to thread options
+    let binwalker = binwalk::Binwalk::configure(
+        filename.clone(),
+        opts.directory.clone(),
+        include_vec,
+        exclude_vec,
+        None, // user-defined signatures (no thread count in API)
+        opts.matryoshka
+    ).unwrap();
+
+    // Use carve logic if requested
+    let results = if opts.carve {
+        // TODO: Implement carving logic in backend (call carve-enabled scan/extract)
+        // For now, fallback to normal scan
+        binwalker.scan(&file_bytes)
+    } else {
+        binwalker.scan(&file_bytes)
+    };
+
     let mut extractions = HashMap::new();
     if opts.extract {
         // Extraction logic

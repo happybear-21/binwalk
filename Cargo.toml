@@ -10,6 +10,7 @@ description = "Analyzes data for embedded file types"
 keywords = ["binwalk", "firmware", "analysis"]
 
 [dependencies]
+rayon = "1.8"
 log = "0.4.22"
 base64 = "0.22.1"
 chrono = "0.4.38"
