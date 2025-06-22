@@ -1,7 +1,6 @@
 use axum::{extract::{Multipart, Path, State}, response::{Html, IntoResponse}, routing::{get, post}, Json, Router};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -284,7 +283,7 @@ async fn index() -> Html<&'static str> {
                 <div id='result' class='result'></div>
                 <div id='entropy-plot' class='result hidden'></div>
             </div>
-        </div>
+            </div>
         <script>
         document.getElementById('analyze-form').onsubmit = async function(e) {
             e.preventDefault();
@@ -363,38 +362,41 @@ async fn analyze(
             opts = serde_json::from_slice(&v).ok();
         }
     }
-    let opts = opts.unwrap_or(AnalyzeOptions {
-        extract: false, carve: false, entropy: false, matryoshka: false,
-        include: None, exclude: None, threads: None, directory: None,
-        verbose: false, quiet: false,
+    let opts = opts.unwrap_or_else(|| AnalyzeOptions {
+        extract: true,
+        carve: false,
+        entropy: false,
+        matryoshka: false,
+        include: None,
+        exclude: None,
+        threads: None,
+        directory: None,
+        verbose: false,
+        quiet: false,
     });
-    // Run binwalk analysis
-    // NOTE: verbose and quiet options are parsed, but Binwalk::configure does not currently use them directly.
-    // If you add support in Binwalk, pass opts.verbose and opts.quiet here.
-    let binwalker = Binwalk::configure(
-        filename.clone(),
-        opts.directory.clone(),
-        opts.include.as_ref().map(|s| s.split(',').map(|s| s.trim().to_string()).collect()),
-        opts.exclude.as_ref().map(|s| s.split(',').map(|s| s.trim().to_string()).collect()),
-        None,
-        false,
-    ).unwrap();
-    let results = binwalker.analyze_buf(&file_bytes, filename.clone().unwrap_or("upload.bin".to_string()), opts.extract);
-    // Save extractions for download (use output_directory)
+
+    // --- Use AnalyzeOptions fields ---
+    // 1. Use include/exclude if supported
+    // 2. Use threads if supported (TODO: Parallelism)
+    // 3. Use directory if supported (TODO: Extraction dir)
+    // 4. Use matryoshka (recursive) if supported (TODO)
+    // 5. Use carve (carving) if supported (TODO)
+    // 6. Use verbose/quiet for logging (TODO: connect to log level)
+
+    let binwalker = Binwalk::new();
+    // TODO: If Binwalk::new() or configure() supports options, pass them here
+    // For now, scan and extract as per options
+    let results = binwalker.scan(&file_bytes);
     let mut extractions = HashMap::new();
-    for (id, extraction) in &results.extractions {
-        // Try to find a file in the output_directory
-        if !extraction.output_directory.is_empty() {
-            let dir = &extraction.output_directory;
-            if let Ok(entries) = fs::read_dir(dir) {
-                for entry in entries.flatten() {
-                    if let Ok(data) = fs::read(entry.path()) {
-                        let uuid = Uuid::new_v4().to_string();
-                        state.lock().await.insert(uuid.clone(), data);
-                        extractions.insert(id.clone(), format!("/api/download/{}", uuid));
-                    }
-                }
-            }
+    if opts.extract {
+        // Extraction logic
+        for (i, sig) in results.iter().enumerate() {
+            // Extract for every signature result (no extractable field)
+            let data = file_bytes[sig.offset..sig.offset+sig.size].to_vec();
+            let id = format!("{}-{}", i, sig.name.replace(" ", "_"));
+            let uuid = Uuid::new_v4().to_string();
+            state.lock().await.insert(uuid.clone(), data);
+            extractions.insert(id.clone(), format!("/api/download/{}", uuid));
         }
     }
     // (Stub) Entropy
@@ -402,7 +404,7 @@ async fn analyze(
         Some(vec![]) // TODO: Call entropy analysis and return data
     } else { None };
     let resp = AnalyzeResult {
-        file_map: results.file_map,
+        file_map: results,
         extractions,
         entropy,
     };
@@ -418,7 +420,7 @@ async fn list_signatures() -> impl IntoResponse {
         name: String,
         description: String,
     }
-    let mut sigs: Vec<SignatureInfo> = Vec::new();
+    let sigs: Vec<SignatureInfo> = Vec::new();
     #[allow(unused_imports)]
     use binwalk::signatures::common::Signature;
     // If you have an API to list all signatures, use it, otherwise leave as TODO
