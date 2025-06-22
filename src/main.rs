@@ -18,6 +18,7 @@ mod json;
 mod magic;
 mod signatures;
 mod structures;
+mod web;
 
 fn main() {
     // File name used when reading from stdin
@@ -54,6 +55,13 @@ fn main() {
 
     // Process command line arguments
     let mut cliargs = cliparser::parse();
+
+    // If --web was specified, launch the web server and exit
+    if cliargs.web {
+        println!("Web UI available at http://localhost:8080");
+        web::start_server();
+        return;
+    }
 
     // If --list was specified, just display a list of signatures and return
     if cliargs.list {

@@ -65,6 +65,10 @@ pub struct CliArgs {
 
     /// Path to the file to analyze
     pub file_name: Option<String>,
+
+    /// Launch the web-based interface
+    #[arg(short = 'W', long)]
+    pub web: bool,
 }
 
 pub fn parse() -> CliArgs {
