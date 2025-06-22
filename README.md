@@ -1,6 +1,63 @@
 # Binwalk v3
 
-This is an updated version of the Binwalk firmware analysis tool, re-written in Rust for speed and accuracy.
+Binwalk is a fast, modern tool for analyzing binary blobs and firmware images for embedded file signatures, extraction, and entropy analysis. This project includes both a CLI and a web interface, with ready-to-use Docker images.
+
+---
+
+## 🚀 Quick Start (Docker CLI)
+
+You can use Binwalk directly from Docker without installing any dependencies on your system. The official image is:
+
+```
+docker pull happybear21/binwalk
+```
+
+### Analyze a File
+
+Mount your working directory (so Binwalk can access your files):
+
+```
+docker run --rm -v "$PWD:/analysis" happybear21/binwalk /analysis/your_firmware.bin
+```
+
+- Replace `your_firmware.bin` with your target file.
+- All output/extractions will appear in your current directory.
+
+### Show Help / CLI Options
+
+```
+docker run --rm happybear21/binwalk --help
+```
+
+### Extract Embedded Files
+
+```
+docker run --rm -v "$PWD:/analysis" happybear21/binwalk -e /analysis/your_firmware.bin
+```
+
+### Carving, Threads, and Advanced Options
+
+- Carve unknown files:
+  ```
+  docker run --rm -v "$PWD:/analysis" happybear21/binwalk -c /analysis/your_firmware.bin
+  ```
+- Set number of threads:
+  ```
+  docker run --rm -v "$PWD:/analysis" happybear21/binwalk -t 4 /analysis/your_firmware.bin
+  ```
+- Use include/exclude filters:
+  ```
+  docker run --rm -v "$PWD:/analysis" happybear21/binwalk -y gzip -x zip /analysis/your_firmware.bin
+  ```
+
+### Recursively Extract (Matryoshka)
+
+```
+docker run --rm -v "$PWD:/analysis" happybear21/binwalk -M -e /analysis/your_firmware.bin
+```
+
+---
+
 
 ![binwalk v3](images/binwalk_animated.svg)
 

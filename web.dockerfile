@@ -38,4 +38,9 @@ USER ubuntu
 # as the symlink target path in the docker environment will not match that of the host.
 ENV BINWALK_RM_EXTRACTION_SYMLINK=1
 
+# Expose the Binwalk web UI port
+EXPOSE 8080
+
+# By default, run Binwalk in web mode (can override with CLI args)
 ENTRYPOINT [ "binwalk" ]
+CMD [ "--web" ]
